@@ -1,6 +1,6 @@
 # node-format-converter
 
-一个使用 Node.js 构建的通用文件格式转换库，支持多种文件类型的转换。
+一个使用 Node.js 构建的通用文件格式转换库，支持多种文件类型的转换，无需 Express 即可使用。
 
 ## 功能特点
 
@@ -10,6 +10,8 @@
 - **文档转换**：支持 Word、PPT、PDF 互转
 - **表格转换**：支持 Excel 和 CSV 互转
 - **PDF 处理**：支持 PDF 转图片、提取文本
+- **无依赖模式**：可以不依赖 Express，直接在任意 Node.js 项目中使用
+- **Express 集成**：可选集成到 Express 应用中
 
 ## 安装
 
@@ -25,27 +27,26 @@ npm install node-format-converter
 
 ## 使用方法
 
-### 作为 npm 包使用
+### 直接使用（无需 Express）
 
-你可以在你的 Node.js 项目中直接引用该包：
+最简单的使用方式，直接调用转换函数：
 
 ```javascript
 const converter = require('node-format-converter');
 
-// 初始化转换器（创建必要的目录）
-const { uploadsDir, convertedDir } = converter.init();
+// 初始化（可选）
+converter.init();
 
-// 使用转换服务
-async function convertImage() {
+// 直接转换文件 - 最简单的 API
+async function convertFile() {
   try {
-    // 直接转换文件
-    const result = await converter.imageConverter.convertImage(
-      '/path/to/image.png',  // 文件路径或multer文件对象
+    const result = await converter.convert(
+      '/path/to/image.png',  // 源文件路径
       'jpg',                 // 目标格式
       {                      // 选项（可选）
-        width: 800,
-        height: 600,
-        quality: 90
+        quality: 90,         // 图片质量
+        width: 800,          // 输出宽度
+        type: 'image'        // 可选，如不提供会自动判断
       }
     );
     
@@ -57,9 +58,43 @@ async function convertImage() {
 }
 ```
 
-### 在 Express 项目中集成
+### 使用特定转换器
 
-可以轻松将转换服务集成到 Express 应用中：
+你也可以直接使用特定的转换器模块：
+
+```javascript
+const { imageConverter, pdfConverter } = require('node-format-converter');
+
+// 使用图片转换器
+async function convertImage() {
+  try {
+    const result = await imageConverter.convertImage(
+      '/path/to/image.png',  // 文件路径
+      'jpg',                 // 目标格式
+      {                      // 选项（可选）
+        width: 800,
+        height: 600,
+        quality: 90
+      }
+    );
+    
+    console.log(`图片转换成功! 输出文件路径: ${result.outputPath}`);
+    return result;
+  } catch (error) {
+    console.error('图片转换失败:', error);
+  }
+}
+```
+
+### 在 Express 项目中集成（可选）
+
+如果你想在 Express 应用中使用，需要安装额外的依赖：
+
+```bash
+npm install express multer
+```
+
+然后可以轻松将转换服务集成到 Express 应用中：
 
 ```javascript
 const express = require('express');
@@ -80,27 +115,34 @@ app.listen(3000, () => {
 });
 ```
 
-### 直接运行示例服务器
-
-本包提供了一个完整的示例服务器，包含基本UI：
-
-```bash
-# 克隆仓库并安装依赖
-git clone https://github.com/wlor0623/node-format-converter.git
-cd node-format-converter
-npm install
-
-# 运行示例服务器
-npm start
-```
-
-访问 `http://localhost:3000` 查看演示页面。
-
 ## API 文档
 
-### 主要模块
+### 核心 API
 
-- **fileHelper**: 文件处理工具
+#### `convert(filePath, targetFormat, options)`
+
+最简单的转换 API，自动处理文件类型检测和转换。
+
+```javascript
+const result = await converter.convert('/path/to/file.jpg', 'png', {
+  quality: 90,
+  type: 'image' // 可选，如不提供会自动检测
+});
+```
+
+#### `init(options)`
+
+初始化转换器，创建必要的目录。
+
+```javascript
+converter.init({
+  uploadsDir: '/custom/uploads/path', // 可选
+  convertedDir: '/custom/converted/path' // 可选
+});
+```
+
+### 专用转换器模块
+
 - **imageConverter**: 图片转换服务
 - **videoConverter**: 视频转换服务
 - **audioConverter**: 音频转换服务
@@ -108,7 +150,7 @@ npm start
 - **excelConverter**: 表格转换服务
 - **pdfConverter**: PDF处理服务
 
-### 转换方法
+### 各转换器方法
 
 每个转换器模块都提供了相应的转换方法：
 
@@ -150,11 +192,21 @@ const { outputPath } = await pdfConverter.convertPdf(file, targetFormat, options
 
 ### 参数说明
 
-- **file**: 文件对象或文件路径字符串
+- **file/filePath**: 文件路径字符串或文件对象
 - **targetFormat**: 目标格式（如'jpg', 'mp4', 'pdf'等）
 - **options**: 选项对象，根据不同的转换类型有不同的选项
 
 ## 转换选项
+
+### 通用选项
+
+```javascript
+{
+  type: 'image',                  // 文件类型，可选（自动检测）
+  cleanupAfterConversion: true,   // 转换后是否删除源文件
+  outputDir: '/custom/output'     // 自定义输出目录
+}
+```
 
 ### 图片转换选项
 
@@ -207,9 +259,9 @@ const { outputPath } = await pdfConverter.convertPdf(file, targetFormat, options
 }
 ```
 
-## Express 路由 API
+## Express 路由 API（可选）
 
-使用 `converter.getExpressRouter()` 创建的路由提供了以下 API：
+如果你安装了 Express 和 Multer，可以使用 `getExpressRouter()` 创建的路由：
 
 ### 文件转换接口
 
@@ -248,8 +300,8 @@ const { outputPath } = await pdfConverter.convertPdf(file, targetFormat, options
 
 ## 注意事项
 
-- 默认情况下，文件大小限制为 100MB（可通过选项修改）
-- 转换完成后，原始文件和转换后的文件将自动删除（可通过 `cleanupAfterDownload: false` 选项禁用）
+- 默认情况下，文件大小限制为 100MB（在 Express 路由中可配置）
+- 转换完成后，原始文件会自动删除（可通过 `cleanupAfterConversion: false` 选项禁用）
 - 使用自动类型检测功能时，如果无法识别文件类型，请明确指定 `type` 参数
 
 ## 许可

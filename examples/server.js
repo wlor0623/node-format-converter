@@ -11,10 +11,11 @@ console.log(`Converted files directory: ${convertedDir}`);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 使用转换器的Express路由
-app.use('/convert', converter.getExpressRouter({
+// 使用转换器的Express路由 - 注意这里现在会返回一个配置好的路由
+const convertRouter = converter.getExpressRouter({
   maxFileSize: 200 * 1024 * 1024, // 设置最大文件大小为200MB
-}));
+});
+app.use('/convert', convertRouter);
 
 // 添加一个简单的前端页面，展示如何使用转换服务
 app.get('/', (req, res) => {
